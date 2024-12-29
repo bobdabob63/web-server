@@ -1,8 +1,5 @@
 use std::{
-    fs,
-    io::{BufRead, BufReader, BufWriter, Write as _},
-    net::{TcpListener, TcpStream},
-    time::Duration,
+    fs, io::{BufRead, BufReader, BufWriter, Write as _}, net::{TcpListener, TcpStream}, str::from_utf8, time::Duration
 };
 
 use http::{header, HeaderMap, HeaderName, HeaderValue, Request, Response};
@@ -18,13 +15,21 @@ fn handle_connection(stream: TcpStream) {
         str => str,
     };
     let full_path = base_path + request_path;
-    println!("{full_path}");
 
-    let file_result = fs::read(full_path);
+    // Read requested file
+    let file_result = fs::read(&full_path);
+    // Determine if file exists
     if file_result.is_err() {
         let _ = writer.write(b"HTTP/1.1 404");
     } else {
-        writer.write(&file_result.unwrap()).unwrap();
+	let file_content = file_result.unwrap();
+	let response = response(file_content);
+	// Print utf8 responses in console
+	match from_utf8(&response) {
+	    Ok(v) => println!("{}", v),
+	    Err(v) => ()
+	}
+        let _ = writer.write(&response).unwrap();
     }
 }
 
@@ -50,14 +55,23 @@ fn parse_request(stream: TcpStream) -> http::Request<String> {
     request
 }
 
-fn _response() -> Vec<u8> {
-    let (_parts, body) = Response::builder()
+fn response(content: Vec<u8>) -> Vec<u8> {
+    let mut response = Response::builder()
         .header("Content-Type", "text/html")
-        .body("Hello world")
-        .unwrap()
-        .into_parts();
-    let response = body;
-    response.as_bytes().to_vec()
+        .status(200)
+        .body(content)
+        .unwrap();
+    let mut headers: Vec<String> = vec![];
+    headers.append(&mut vec![format!("HTTP/1.1 {}", response.status())]);
+    // TODO: Status code
+    for (name, value) in response.headers() {
+	let header_line = format!("{}: {}", name.as_str(), value.to_str().unwrap());
+	headers.append(&mut vec![header_line]);
+    }
+    let mut final_response = headers.join("\n").into_bytes();
+    final_response.append(&mut (b"\n\n").to_vec());
+    final_response.append(&mut response.body().to_vec());
+    final_response
 }
 
 fn valid_headers(headers: &HeaderMap<HeaderValue>) -> bool {
@@ -72,7 +86,7 @@ fn valid_headers(headers: &HeaderMap<HeaderValue>) -> bool {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:80").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
     let socket_addr = &listener.local_addr().unwrap();
     println!("{socket_addr}");
 
