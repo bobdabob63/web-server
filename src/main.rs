@@ -22,8 +22,12 @@ fn handle_connection(stream: TcpStream) {
     if file_result.is_err() {
         let _ = writer.write(b"HTTP/1.1 404");
     } else {
+	// Read file
 	let file_content = file_result.unwrap();
-	let response = response(file_content);
+	// Read file extension
+	let extension_temp = full_path.split(".").last().unwrap();
+	let extension = String::from(extension_temp);
+	let response = response(file_content, &extension);
 	// Print utf8 responses in console
 	match from_utf8(&response) {
 	    Ok(v) => println!("{}", v),
@@ -55,9 +59,15 @@ fn parse_request(stream: TcpStream) -> http::Request<String> {
     request
 }
 
-fn response(content: Vec<u8>) -> Vec<u8> {
-    let mut response = Response::builder()
-        .header("Content-Type", "text/html")
+fn response(content: Vec<u8>, extension: &str) -> Vec<u8> {
+    let img_list = ["ico", "png", "svg", "jpg", "jpeg", "webp"];
+    let content_type = match extension {
+	"html" => "text/html",
+	"ico" => "image",
+	_ => "text/plain"
+    };
+    let response = Response::builder()
+        .header("Content-Type", content_type)
         .status(200)
         .body(content)
         .unwrap();
