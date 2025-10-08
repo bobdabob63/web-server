@@ -9,7 +9,7 @@ fn handle_connection(stream: TcpStream) {
     // let mut buffer: Vec<u8> = Vec::new();
 
     let request = parse_request(stream);
-    let base_path = "files".to_string();
+    let base_path = ".".to_string();
     let request_path = match request.uri().path() {
         "/" => "/index.html",
         str => str,
@@ -63,7 +63,7 @@ fn response(content: Vec<u8>, extension: &str) -> Vec<u8> {
     let img_list = ["ico", "png", "svg", "jpg", "jpeg", "webp"];
     let content_type = match extension {
 	"html" => "text/html",
-	"ico" => "image",
+	ext if img_list.contains(&ext) => "image",
 	_ => "text/plain"
     };
     let response = Response::builder()
@@ -96,7 +96,7 @@ fn valid_headers(headers: &HeaderMap<HeaderValue>) -> bool {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
     let socket_addr = &listener.local_addr().unwrap();
     println!("{socket_addr}");
 
